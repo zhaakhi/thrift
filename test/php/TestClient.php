@@ -254,29 +254,15 @@ for ($i = -2; $i < 3; ++$i) {
   $setout[$i]= true;
 }
 print_r("testSet({");
-$first = true;
-foreach ($setout as $key => $_) {
-  if ($first) {
-    $first = false;
-  } else {
-    print_r(", ");
-  }
-  print_r($val);
-}
+echo implode(',', array_keys($setout));
 print_r("})");
 $setin = $testClient->testSet($setout);
 print_r(" = {");
-$first = true;
-foreach ($setin as $val) {
-  if ($first) {
-    $first = false;
-  } else {
-    print_r(", ");
-  }
-  print_r($val);
-}
+echo implode(', ', array_keys($setin));
 print_r("}\n");
-if ($setin != $setout) {
+// Order of keys in set does not matter
+ksort($setin);
+if ($setin !== $setout) {
     echo "**FAILED**\n";
     $exitcode |= ERR_CONTAINERS;
 }
