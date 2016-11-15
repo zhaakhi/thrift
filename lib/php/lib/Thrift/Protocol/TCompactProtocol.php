@@ -661,10 +661,11 @@ class TCompactProtocol extends TProtocol
       $lo += 0x80000000;
     }
 
-    $value = $hi * 4294967296 + $lo;
+    // Create as negative value first, since we can store -2^63 but not 2^63
+    $value = -$hi * 4294967296 - $lo;
 
-    if ($isNeg) {
-      $value = 0 - $value;
+    if (!$isNeg) {
+      $value = -$value;
     }
 
     return $idx;
