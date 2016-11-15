@@ -44,6 +44,7 @@ $loader->register();
 /** Include the Thrift base */
 /** Include the protocols */
 use Thrift\Protocol\TBinaryProtocol;
+use Thrift\Protocol\TBinaryProtocolAccelerated;
 use Thrift\Protocol\TCompactProtocol;
 use Thrift\Protocol\TJSONProtocol;
 
@@ -63,9 +64,16 @@ function makeProtocol($transport, $PROTO)
     return new TCompactProtocol($transport);
   } else if ($PROTO == 'json') {
     return new TJSONProtocol($transport);
+  } else if ($PROTO == 'accel') {
+    if (!function_exists('thrift_protocol_write_binary')) {
+      echo "Acceleration extension is not loaded\n";
+      exit(1);
+    }
+    return new TBinaryProtocolAccelerated($transport);
   }
 
-  die ("--protocol must be one of {binary|compact|json}");
+  echo "--protocol must be one of {binary|compact|json|accel}\n";
+  exit(1);
 }
 
 $host = 'localhost';
