@@ -270,7 +270,12 @@ echo implode(', ', array_keys($setin));
 print_r("}\n");
 // Order of keys in set does not matter
 ksort($setin);
-if ($setin !== $setout || $setin[2] !== $setout[2]) {
+if ($setout !== $setin) {
+    echo "**FAILED**\n";
+    $exitcode |= ERR_CONTAINERS;
+}
+// Regression test for corrupted array
+if ($setin[2] !== $setout[2] || is_int($setin[2])) {
     echo "**FAILED**\n";
     $exitcode |= ERR_CONTAINERS;
 }
