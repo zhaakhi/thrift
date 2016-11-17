@@ -152,9 +152,18 @@ function roundtrip($testClient, $method, $value) {
 roundtrip($testClient, 'testString', "Test");
 
 /**
+ * BOOL TEST
+ */
+roundtrip($testClient, 'testBool', true);
+roundtrip($testClient, 'testBool', false);
+
+/**
  * BYTE TEST
  */
 roundtrip($testClient, 'testByte', 1);
+roundtrip($testClient, 'testByte', -1);
+roundtrip($testClient, 'testByte', 127);
+roundtrip($testClient, 'testByte', -128);
 
 /**
  * I32 TEST
