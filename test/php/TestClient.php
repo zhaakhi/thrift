@@ -141,6 +141,42 @@ $testRunner->run('testVoid()', ErrVal::BASETYPES, function($testClient) {
 // STRING TEST
 $testRunner->roundtrip('testString', "");
 $testRunner->roundtrip('testString', "Test");
+$testRunner->roundtrip('testString',
+    "}{Afrikaans, Alemannisch, Aragonés, العربية, مصرى, " .
+    "Asturianu, Aymar aru, Azərbaycan, Башҡорт, Boarisch, Žemaitėška, " .
+    "Беларуская, Беларуская (тарашкевіца), Български, Bamanankan, " .
+    "বাংলা, Brezhoneg, Bosanski, Català, Mìng-dĕ̤ng-ngṳ̄, Нохчийн, " .
+    "Cebuano, ᏣᎳᎩ, Česky, Словѣ́ньскъ / ⰔⰎⰑⰂⰡⰐⰠⰔⰍⰟ, Чӑвашла, Cymraeg, " .
+    "Dansk, Zazaki, ދިވެހިބަސް, Ελληνικά, Emiliàn e rumagnòl, English, " .
+    "Esperanto, Español, Eesti, Euskara, فارسی, Suomi, Võro, Føroyskt, " .
+    "Français, Arpetan, Furlan, Frysk, Gaeilge, 贛語, Gàidhlig, Galego, " .
+    "Avañe'ẽ, ગુજરાતી, Gaelg, עברית, हिन्दी, Fiji Hindi, Hrvatski, " .
+    "Kreyòl ayisyen, Magyar, Հայերեն, Interlingua, Bahasa Indonesia, " .
+    "Ilokano, Ido, Íslenska, Italiano, 日本語, Lojban, Basa Jawa, " .
+    "ქართული, Kongo, Kalaallisut, ಕನ್ನಡ, 한국어, Къарачай-Малкъар, " .
+    "Ripoarisch, Kurdî, Коми, Kernewek, Кыргызча, Latina, Ladino, " .
+    "Lëtzebuergesch, Limburgs, Lingála, ລາວ, Lietuvių, Latviešu, Basa " .
+    "Banyumasan, Malagasy, Македонски, മലയാളം, मराठी, مازِرونی, Bahasa " .
+    "Melayu, Nnapulitano, Nedersaksisch, नेपाल भाषा, Nederlands, ‪" .
+    "Norsk (nynorsk)‬, ‪Norsk (bokmål)‬, Nouormand, Diné bizaad, " .
+    "Occitan, Иронау, Papiamentu, Deitsch, Polski, پنجابی, پښتو, " .
+    "Norfuk / Pitkern, Português, Runa Simi, Rumantsch, Romani, Română, " .
+    "Русский, Саха тыла, Sardu, Sicilianu, Scots, Sámegiella, Simple " .
+    "English, Slovenčina, Slovenščina, Српски / Srpski, Seeltersk, " .
+    "Svenska, Kiswahili, தமிழ், తెలుగు, Тоҷикӣ, ไทย, Türkmençe, Tagalog, " .
+    "Türkçe, Татарча/Tatarça, Українська, اردو, Tiếng Việt, Volapük, " .
+    "Walon, Winaray, 吴语, isiXhosa, ייִדיש, Yorùbá, Zeêuws, 中文, " .
+    "Bân-lâm-gú, 粵語"
+);
+
+$testRunner->roundtrip('testString',
+      "quote: \" backslash:" .
+      " forwardslash-escaped: \\/ " .
+      " backspace: \b formfeed: \f newline: \n return: \r tab: " .
+      " now-all-of-them-together: \"\\\\/\b\n\r\t" .
+      " now-a-bunch-of-junk: !@#$%&()(&%$#{}{}<><><" .
+      " char-to-test-json-parsing: ]] \"]] \\\" }}}{ [[[ "
+);
 
 // BOOL TEST
 $testRunner->roundtrip('testBool', true);
@@ -168,6 +204,18 @@ $testRunner->roundtrip('testI64', -34359738368);
 
 // DOUBLE TEST
 $testRunner->roundtrip('testDouble', -852.234234234);
+
+// BINARY TEST
+$testRunner->roundtrip('testBinary', '');
+$testRunner->run('testBinary([0..255])', ErrVal::BASETYPES, function($testClient) {
+    $allBytes = '';
+    for ($i = 0; $i < 256; $i++) {
+        $allBytes .= chr($i);
+    }
+    $result = $testClient->testBinary($allBytes);
+    echo ' = ' . bin2hex($result) . "\n";
+    assertSame($allBytes, $result);
+});
 
 // STRUCT TEST
 $xtruct = new \ThriftTest\Xtruct();
@@ -207,6 +255,8 @@ $testRunner->run('testSet', ErrVal::CONTAINERS, function($testClient) {
     echo 'testSet(' . prettyFormat($setout) . ')';
     $result = $testClient->testSet($setout);
     echo ' = ' . prettyFormat($result) . "\n";
+    ksort($setout);
+    ksort($result);
     assertSame($setout, $result);
 
     // Regression test for corrupted arrays from C extension (THRIFT-3977)
@@ -216,6 +266,7 @@ $testRunner->run('testSet', ErrVal::CONTAINERS, function($testClient) {
 });
 
 // LIST TEST
+$testRunner->roundtrip('testList', [], ErrVal::CONTAINERS);
 $listout = array();
 for ($i = -2; $i < 3; ++$i) {
   $listout[]= $i;
@@ -263,6 +314,19 @@ $testRunner->run('testInsanity()', ErrVal::STRUCTS, function($testClient) {
     assertEqual($insane, $whoa[1][2]);
 });
 
+// MULTI TEST
+$testRunner->run('testMulti()', ErrVal::STRUCTS, function($testClient) {
+    $mul_map = [1 => 'blah', 2 => 'thing'];
+    $result = $testClient->testMulti(42, 4242, 424242, $mul_map, \ThriftTest\Numberz::EIGHT, 24);
+    echo ' = ' . prettyFormat($result) . "\n";
+    $expected = new \ThriftTest\Xtruct();
+    $expected->string_thing = "Hello2";
+    $expected->byte_thing = 42;
+    $expected->i32_thing = 4242;
+    $expected->i64_thing = 424242;
+    assertEqual($expected, $result);
+});
+
 // EXCEPTION TEST
 $testRunner->run("testException('Xception')", ErrVal::EXCEPTIONS, function($testClient) {
     try {
@@ -273,6 +337,15 @@ $testRunner->run("testException('Xception')", ErrVal::EXCEPTIONS, function($test
     }
 });
 
+// ONEWAY VOID TEST
+// disabled, doesn't work
+/*
+$testRunner->run("testOneway(1)", ErrVal::BASETYPES, function($testClient) {
+    $testClient->testOneway(1);
+    // check that other calls work afterwards
+    assertSame(1, $testClient->testI32(1));
+});
+*/
 
 // INTEGER LIMIT TESTS
 // Max I32
