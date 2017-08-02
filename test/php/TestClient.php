@@ -122,416 +122,297 @@ $transport->open();
 
 $start = microtime(true);
 
+$testRunner = new TestRunner($testClient);
+
 define('ERR_BASETYPES', 1);
 define('ERR_STRUCTS', 2);
 define('ERR_CONTAINERS', 4);
 define('ERR_EXCEPTIONS', 8);
 define('ERR_UNKNOWN', 64);
-$exitcode = 0;
-/**
- * VOID TEST
- */
-print_r("testVoid()");
-$testClient->testVoid();
-print_r(" = void\n");
 
-function roundtrip($testClient, $method, $value) {
-  global $exitcode;
-  print_r("$method($value)");
-  $ret = $testClient->$method($value);
-  print_r(" = \"$ret\"\n");
-  if ($value !== $ret) {
-    print_r("*** FAILED ***\n");
-    $exitcode |= ERR_BASETYPES;
-  }
-}
 
-/**
- * STRING TEST
- */
-roundtrip($testClient, 'testString', "Test");
+// VOID TEST
+$testRunner->run('testVoid()', ERR_BASETYPES, function($testClient) {
+    $testClient->testVoid();
+});
 
-/**
- * BOOL TEST
- */
-roundtrip($testClient, 'testBool', true);
-roundtrip($testClient, 'testBool', false);
+// STRING TEST
+$testRunner->roundtrip('testString', "");
+$testRunner->roundtrip('testString', "Test");
 
-/**
- * BYTE TEST
- */
-roundtrip($testClient, 'testByte', 1);
-roundtrip($testClient, 'testByte', -1);
-roundtrip($testClient, 'testByte', 127);
-roundtrip($testClient, 'testByte', -128);
+// BOOL TEST
+$testRunner->roundtrip('testBool', true);
+$testRunner->roundtrip('testBool', false);
 
-/**
- * I32 TEST
- */
-roundtrip($testClient, 'testI32', -1);
+// BYTE TEST
+$testRunner->roundtrip('testByte', 0);
+$testRunner->roundtrip('testByte', 1);
+$testRunner->roundtrip('testByte', -1);
+$testRunner->roundtrip('testByte', 127);
+$testRunner->roundtrip('testByte', -128);
 
-/**
- * I64 TEST
- */
-roundtrip($testClient, 'testI64', 0);
-roundtrip($testClient, 'testI64', 1);
-roundtrip($testClient, 'testI64', -1);
-roundtrip($testClient, 'testI64', -34359738368);
+// I32 TEST
+$testRunner->roundtrip('testI32', 0);
+$testRunner->roundtrip('testI32', 1);
+$testRunner->roundtrip('testI32', -1);
+$testRunner->roundtrip('testI32', 2147483647);
+$testRunner->roundtrip('testI32', -2147483648);
 
-/**
- * DOUBLE TEST
- */
-roundtrip($testClient, 'testDouble', -852.234234234);
+// I64 TEST
+$testRunner->roundtrip('testI64', 0);
+$testRunner->roundtrip('testI64', 1);
+$testRunner->roundtrip('testI64', -1);
+$testRunner->roundtrip('testI64', -34359738368);
 
-/**
- * BINARY TEST  --  TODO
- */
+// DOUBLE TEST
+$testRunner->roundtrip('testDouble', -852.234234234);
 
-/**
- * STRUCT TEST
- */
-print_r("testStruct({\"Zero\", 1, -3, -5})");
-$out = new \ThriftTest\Xtruct();
-$out->string_thing = "Zero";
-$out->byte_thing = 1;
-$out->i32_thing = -3;
-$out->i64_thing = -5;
-$in = $testClient->testStruct($out);
-print_r(" = {\"".$in->string_thing."\", ".
-        $in->byte_thing.", ".
-        $in->i32_thing.", ".
-        $in->i64_thing."}\n");
+// STRUCT TEST
+$xtruct = new \ThriftTest\Xtruct();
+$xtruct->string_thing = "Zero";
+$xtruct->byte_thing = 1;
+$xtruct->i32_thing = -3;
+$xtruct->i64_thing = -5;
+$testRunner->roundtripNonStrict('testStruct', $xtruct, ERR_STRUCTS);
 
-if ($in != $out) {
-    echo "**FAILED**\n";
-    $exitcode |= ERR_STRUCTS;
-}
+// NESTED STRUCT TEST
+$xtruct2 = new \ThriftTest\Xtruct2();
+$xtruct2->byte_thing = 1;
+$xtruct2->struct_thing = $xtruct;
+$xtruct2->i32_thing = 5;
+$testRunner->roundtripNonStrict('testNest', $xtruct2, ERR_STRUCTS);
 
-/**
- * NESTED STRUCT TEST
- */
-print_r("testNest({1, {\"Zero\", 1, -3, -5}), 5}");
-$out2 = new \ThriftTest\Xtruct2();
-$out2->byte_thing = 1;
-$out2->struct_thing = $out;
-$out2->i32_thing = 5;
-$in2 = $testClient->testNest($out2);
-$in = $in2->struct_thing;
-print_r(" = {".$in2->byte_thing.", {\"".
-        $in->string_thing."\", ".
-        $in->byte_thing.", ".
-        $in->i32_thing.", ".
-        $in->i64_thing."}, ".
-        $in2->i32_thing."}\n");
-
-if ($in2 != $out2) {
-    echo "**FAILED**\n";
-    $exitcode |= ERR_STRUCTS;
-}
-
-/**
- * MAP TEST
- */
+// MAP TEST
 $mapout = array();
 for ($i = 0; $i < 5; ++$i) {
   $mapout[$i] = $i-10;
 }
-print_r("testMap({");
-$first = true;
-foreach ($mapout as $key => $val) {
-  if ($first) {
-    $first = false;
-  } else {
-    print_r(", ");
-  }
-  print_r("$key => $val");
-}
-print_r("})");
-
-$mapin = $testClient->testMap($mapout);
-print_r(" = {");
-$first = true;
-foreach ($mapin as $key => $val) {
-  if ($first) {
-    $first = false;
-  } else {
-    print_r(", ");
-  }
-  print_r("$key => $val");
-}
-print_r("}\n");
-
-if ($mapin != $mapout) {
-    echo "**FAILED**\n";
-    $exitcode |= ERR_CONTAINERS;
-}
+$testRunner->roundtripIgnoreKeyOrder('testMap', $mapout, ERR_CONTAINERS);
 
 $mapout = array();
-for ($i = 0; $i < 10; $i++) {
+for ($i = 0; $i < 11; $i++) {
     $mapout["key$i"] = "val$i";
 }
-print_r('testStringMap({');
-$first = true;
-foreach ($mapout as $key => $val) {
-  if ($first) {
-    $first = false;
-  } else {
-    print_r(", ");
-  }
-  print_r("\"$key\" => \"$val\"");
-}
-print_r("})");
-$mapin = $testClient->testStringMap($mapout);
-print_r(" = {");
-$first = true;
-foreach ($mapin as $key => $val) {
-  if ($first) {
-    $first = false;
-  } else {
-    print_r(", ");
-  }
-  print_r("\"$key\" => \"$val\"");
-}
-print_r("}\n");
-ksort($mapin);
-if ($mapin != $mapout) {
-    echo "**FAILED**\n";
-    $exitcode |= ERR_CONTAINERS;
-}
+$testRunner->roundtripIgnoreKeyOrder('testStringMap', $mapout, ERR_CONTAINERS);
 
-/**
- * SET TEST
- */
-$setout = array();;
-for ($i = -2; $i < 3; ++$i) {
-  $setout[$i]= true;
-}
-print_r("testSet({");
-echo implode(',', array_keys($setout));
-print_r("})");
-$setin = $testClient->testSet($setout);
-print_r(" = {");
-echo implode(', ', array_keys($setin));
-print_r("}\n");
-// Order of keys in set does not matter
-ksort($setin);
-if ($setout !== $setin) {
-    echo "**FAILED**\n";
-    $exitcode |= ERR_CONTAINERS;
-}
-// Regression test for corrupted array
-if ($setin[2] !== $setout[2] || is_int($setin[2])) {
-    echo "**FAILED**\n";
-    $exitcode |= ERR_CONTAINERS;
-}
+// SET TEST
+$testRunner->run('testSet', ERR_CONTAINERS, function($testClient) {
+    $setout = array();
+    for ($i = -2; $i < 3; ++$i) {
+        $setout[$i]= true;
+    }
 
-/**
- * LIST TEST
- */
+    echo 'testSet(' . prettyFormat($setout) . ')';
+    $result = $testClient->testSet($setout);
+    echo ' = ' . prettyFormat($result) . "\n";
+    assertSame($setout, $result);
+
+    // Regression test for corrupted arrays from C extension (THRIFT-3977)
+    if ($result[2] !== $setout[2] || is_int($result[2])) {
+        throw new \Exception('Invalid set array');
+    }
+});
+
+// LIST TEST
 $listout = array();
 for ($i = -2; $i < 3; ++$i) {
-  $listout []= $i;
+  $listout[]= $i;
 }
-print_r("testList({");
-$first = true;
-foreach ($listout as $val) {
-  if ($first) {
-    $first = false;
-  } else {
-    print_r(", ");
-  }
-  print_r($val);
-}
-print_r("})");
-$listin = $testClient->testList($listout);
-print_r(" = {");
-$first = true;
-foreach ($listin as $val) {
-  if ($first) {
-    $first = false;
-  } else {
-    print_r(", ");
-  }
-  print_r($val);
-}
-print_r("}\n");
-if ($listin !== $listout) {
-    echo "**FAILED**\n";
-    $exitcode |= ERR_CONTAINERS;
-}
+$testRunner->roundtrip('testList', $listout, ERR_CONTAINERS);
 
-/**
- * ENUM TEST
- */
-print_r("testEnum(ONE)");
-$ret = $testClient->testEnum(\ThriftTest\Numberz::ONE);
-print_r(" = $ret\n");
-if ($ret != \ThriftTest\Numberz::ONE) {
-    echo "**FAILED**\n";
-    $exitcode |= ERR_STRUCTS;
-}
+// ENUM TEST
+$testRunner->roundtrip('testEnum', \ThriftTest\Numberz::ONE, ERR_STRUCTS);
+$testRunner->roundtrip('testEnum', \ThriftTest\Numberz::TWO, ERR_STRUCTS);
+$testRunner->roundtrip('testEnum', \ThriftTest\Numberz::THREE, ERR_STRUCTS);
+$testRunner->roundtrip('testEnum', \ThriftTest\Numberz::FIVE, ERR_STRUCTS);
+$testRunner->roundtrip('testEnum', \ThriftTest\Numberz::EIGHT, ERR_STRUCTS);
 
-print_r("testEnum(TWO)");
-$ret = $testClient->testEnum(\ThriftTest\Numberz::TWO);
-print_r(" = $ret\n");
-if ($ret != \ThriftTest\Numberz::TWO) {
-    echo "**FAILED**\n";
-    $exitcode |= ERR_STRUCTS;
-}
+// TYPEDEF TEST
+$testRunner->roundtrip('testTypedef', 309858235082523, ERR_STRUCTS);
 
-print_r("testEnum(THREE)");
-$ret = $testClient->testEnum(\ThriftTest\Numberz::THREE);
-print_r(" = $ret\n");
-if ($ret != \ThriftTest\Numberz::THREE) {
-    echo "**FAILED**\n";
-    $exitcode |= ERR_STRUCTS;
-}
+// NESTED MAP TEST
+$testRunner->run('testMapMap(1)', ERR_CONTAINERS, function($testClient) {
+    $mm = $testClient->testMapMap(1);
+    echo " = " . prettyFormat($mm) . "\n";
+    $expected_mm = [
+      -4 => [-4 => -4, -3 => -3, -2 => -2, -1 => -1],
+      4 => [4 => 4, 3 => 3, 2 => 2, 1 => 1],
+    ];
+    // Key order should not matter
+    ksort($mm);
+    ksort($mm[-4]);
+    ksort($mm[4]);
+    assertEqual($expected_mm, $mm);
+});
 
-print_r("testEnum(FIVE)");
-$ret = $testClient->testEnum(\ThriftTest\Numberz::FIVE);
-print_r(" = $ret\n");
-if ($ret != \ThriftTest\Numberz::FIVE) {
-    echo "**FAILED**\n";
-    $exitcode |= ERR_STRUCTS;
-}
+// INSANITY TEST
+$testRunner->run('testInsanity()', ERR_STRUCTS, function($testClient) {
+    $insane = new \ThriftTest\Insanity();
+    $insane->userMap[\ThriftTest\Numberz::FIVE] = 5000;
+    $truck = new \ThriftTest\Xtruct();
+    $truck->string_thing = "Truck";
+    $truck->byte_thing = 8;
+    $truck->i32_thing = 8;
+    $truck->i64_thing = 8;
+    $insane->xtructs[] = $truck;
+    $whoa = $testClient->testInsanity($insane);
+    echo ' = ' . prettyFormat($whoa) . "\n";
 
-print_r("testEnum(EIGHT)");
-$ret = $testClient->testEnum(\ThriftTest\Numberz::EIGHT);
-print_r(" = $ret\n");
-if ($ret != \ThriftTest\Numberz::EIGHT) {
-    echo "**FAILED**\n";
-    $exitcode |= ERR_STRUCTS;
-}
+    assertEqual($insane, $whoa[1][2]);
+});
 
-/**
- * TYPEDEF TEST
- */
-print_r("testTypedef(309858235082523)");
-$uid = $testClient->testTypedef(309858235082523);
-print_r(" = $uid\n");
-if ($uid !== 309858235082523) {
-    echo "**FAILED**\n";
-    $exitcode |= ERR_STRUCTS;
-}
-
-/**
- * NESTED MAP TEST
- */
-print_r("testMapMap(1)");
-$mm = $testClient->testMapMap(1);
-print_r(" = {");
-foreach ($mm as $key => $val) {
-  print_r("$key => {");
-  foreach ($val as $k2 => $v2) {
-    print_r("$k2 => $v2, ");
-  }
-  print_r("}, ");
-}
-print_r("}\n");
-$expected_mm = [
-  -4 => [-4 => -4, -3 => -3, -2 => -2, -1 => -1],
-  4 => [4 => 4, 3 => 3, 2 => 2, 1 => 1],
-];
-if ($mm != $expected_mm) {
-    echo "**FAILED**\n";
-    $exitcode |= ERR_CONTAINERS;
-}
-
-/**
- * INSANITY TEST
- */
-$insane = new \ThriftTest\Insanity();
-$insane->userMap[\ThriftTest\Numberz::FIVE] = 5000;
-$truck = new \ThriftTest\Xtruct();
-$truck->string_thing = "Truck";
-$truck->byte_thing = 8;
-$truck->i32_thing = 8;
-$truck->i64_thing = 8;
-$insane->xtructs []= $truck;
-print_r("testInsanity()");
-$whoa = $testClient->testInsanity($insane);
-print_r(" = {");
-foreach ($whoa as $key => $val) {
-  print_r("$key => {");
-  foreach ($val as $k2 => $v2) {
-    print_r("$k2 => {");
-    $userMap = $v2->userMap;
-    print_r("{");
-    if (is_array($userMap)) {
-      foreach ($userMap as $k3 => $v3) {
-        print_r("$k3 => $v3, ");
-      }
+// EXCEPTION TEST
+$testRunner->run("testException('Xception')", ERR_EXCEPTIONS, function($testClient) {
+    try {
+        $testClient->testException('Xception');
+        throw new \RuntimeException("Should have thrown exception");
+    } catch (\ThriftTest\Xception $x) {
+        echo ' caught xception '.$x->errorCode.': '.$x->message."\n";
     }
-    print_r("}, ");
+});
 
-    $xtructs = $v2->xtructs;
-    print_r("{");
-    if (is_array($xtructs)) {
-      foreach ($xtructs as $x) {
-        print_r("{\"".$x->string_thing."\", ".
-                $x->byte_thing.", ".$x->i32_thing.", ".$x->i64_thing."}, ");
-      }
-    }
-    print_r("}");
 
-    print_r("}, ");
-  }
-  print_r("}, ");
-}
-print_r("}\n");
+// INTEGER LIMIT TESTS
+// Max I32
+$num = pow(2, 30) + (pow(2, 30) - 1);
+$testRunner->roundtrip('testI32', $num);
 
-/**
- * EXCEPTION TEST
- */
-print_r("testException('Xception')");
-try {
-  $testClient->testException('Xception');
-  print_r("  void\nFAILURE\n");
-  $exitcode |= ERR_EXCEPTIONS;
-} catch (\ThriftTest\Xception $x) {
-  print_r(' caught xception '.$x->errorCode.': '.$x->message."\n");
-}
+// Min I32
+$num = 0 - pow(2, 31);
+$testRunner->roundtrip('testI32', $num);
+
+// Max I64
+$num = pow(2, 62) + (pow(2, 62) - 1);
+$testRunner->roundtrip('testI64', $num);
+
+// Min I64
+$num = 0 - pow(2, 62) - pow(2, 62);
+$testRunner->roundtrip('testI64', $num);
+
 
 /**
  * Normal tests done.
  */
-
 $stop = microtime(true);
 $elp = round(1000*($stop - $start), 0);
-print_r("Total time: $elp ms\n");
+echo "Total time: $elp ms\n";
 
-/**
- * Extraneous "I don't trust PHP to pack/unpack integer" tests
- */
-
+// REGRESSION TESTS
 if ($protocol instanceof TBinaryProtocolAccelerated) {
-    // Regression check: check that method name is not double-freed
-    // Method name should not be an interned string.
-    $method_name = "Void";
-    $method_name = "test$method_name";
+    $testRunner->run('THRIFT-3984 do not double free strings', ERR_UNKNOWN, function($testClient) use ($protocol) {
+        // Regression check: check that method name is not double-freed
+        // Method name should not be an interned string.
+        $method_name = "Void";
+        $method_name = "test$method_name";
 
-    $seqid = 0;
-    $args = new \ThriftTest\ThriftTest_testVoid_args();
-    thrift_protocol_write_binary($protocol, $method_name, \Thrift\Type\TMessageType::CALL, $args, $seqid, $protocol->isStrictWrite());
-    $testClient->recv_testVoid();
-
+        $seqid = 0;
+        $args = new \ThriftTest\ThriftTest_testVoid_args();
+        thrift_protocol_write_binary($protocol, $method_name, \Thrift\Type\TMessageType::CALL, $args, $seqid, $protocol->isStrictWrite());
+        $testClient->recv_testVoid();
+    });
 }
 
-// Max I32
-$num = pow(2, 30) + (pow(2, 30) - 1);
-roundtrip($testClient, 'testI32', $num);
 
-// Min I32
-$num = 0 - pow(2, 31);
-roundtrip($testClient, 'testI32', $num);
-
-// Max I64
-$num = pow(2, 62) + (pow(2, 62) - 1);
-roundtrip($testClient, 'testI64', $num);
-
-// Min I64
-$num = 0 - pow(2, 62) - pow(2, 62);
-roundtrip($testClient, 'testI64', $num);
-
+// DONE
 $transport->close();
-exit($exitcode);
+exit($testRunner->getErrorCode());
+
+
+
+
+// TEST HELPERS
+
+class TestRunner {
+    private $testClient;
+    private $errorCode;
+
+    public function __construct($testClient){
+        $this->testClient = $testClient;
+        $this->errorCode = 0;
+    }
+
+    /**
+     * Runs a test, catching and reporting exceptions
+     */
+    public function run($testName, $errorCode, $testCode) {
+        if (!$errorCode) {
+            $errorCode = ERR_UNKNOWN;
+        }
+        try {
+            echo "#$testName\n";
+            $testCode($this->testClient);
+        } catch (\Exception $e) {
+            echo "** FAILED **\n";
+            echo "$e\n";
+            $this->errorCode |= $errorCode;
+        }
+    }
+
+    /**
+     * Convenience method for checking roundtrip of a single value
+     */
+    private function roundtripWithCheck($method, $value, $errorCode=ERR_BASETYPES, $checkFun) {
+        $value_str = prettyFormat($value);
+        $this->run("$method($value_str)", $errorCode, function($testClient) use ($method, $value, $checkFun) {
+            $result = $testClient->$method($value);
+            echo ' = ' . prettyFormat($result) . "\n";
+            $checkFun($value, $result);
+        });
+    }
+
+    /**
+     * Convenience method for checking roundtrip of a single value
+     */
+    public function roundtrip($method, $value, $errorCode=ERR_BASETYPES) {
+        $this->roundtripWithCheck($method, $value, $errorCode, function($a, $b) {
+            assertSame($a, $b);
+        });
+    }
+
+    /**
+     * Convenience method for checking roundtrip of a single value, with non-strict comparison
+     */
+    public function roundtripNonStrict($method, $value, $errorCode=ERR_BASETYPES) {
+        $this->roundtripWithCheck($method, $value, $errorCode, function($a, $b) {
+            assertEqual($a, $b);
+        });
+    }
+
+    /**
+     * Convenience method for checking roundtrip of a single value, sorting on key before comparison
+     */
+    public function roundtripIgnoreKeyOrder($method, $value, $errorCode=ERR_BASETYPES) {
+        $this->roundtripWithCheck($method, $value, $errorCode, function($a, $b) {
+            ksort($a);
+            ksort($b);
+            assertSame($a, $b);
+        });
+    }
+
+    public function getErrorCode() {
+        return $this->errorCode;
+    }
+}
+
+
+function prettyFormat($val) {
+    if (is_object($val)) {
+        return get_class($val) . json_encode($val);
+    } else {
+        return json_encode($val);
+    }
+}
+
+// Compare with ===
+function assertSame($a, $b) {
+    if ($a !== $b) {
+        throw new \RuntimeException("Failed to assert that " . prettyFormat($a). " === " . prettyFormat($b));
+    }
+}
+
+// Compare with ==
+function assertEqual($a, $b) {
+    if ($a != $b) {
+        throw new \RuntimeException("Failed to assert that " . prettyFormat($a). " == " . prettyFormat($b));
+    }
+}
